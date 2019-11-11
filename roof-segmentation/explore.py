@@ -10,12 +10,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tifffile as tiff
 #%%
-data = "C:\\Users\\shrey\\Downloads\\roof_classification\\stac\\colombia\\borde_rural"
+data = "C:\\Users\\shrey\\Downloads\\roof-classification\\stac\\colombia\\borde_rural"
 
 image = tiff.imread(os.path.join(data,"borde_rural_ortho-cog.tif"))
 image = np.array(image)
 height, width, channels = image.shape
-label = tiff.imread(os.path.join(data,"labels.tif"))
+label = tiff.imread(os.path.join(data,"borde_rural_train_layer.tif"))
 label = np.array(label)
 #%%
 #
