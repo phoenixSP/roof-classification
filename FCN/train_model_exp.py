@@ -10,12 +10,17 @@ import numpy as np
 import tensorflow as tf
 import tifffile as tiff
 
-#%%
+MODEL = "FCN_EXT"
+LOSS_FUNCTION = "NORMAL"
+
+model_folder = MODEL + '_' + LOSS_FUNCTION
+
+
 print("LOAD DATA")
 
 train_data = np.load(os.path.join(config.NUMPY_DIR, "train_image.npy"))
 train_label = np.load(os.path.join(config.NUMPY_DIR, "train_label.npy"))
-#%%
+
 epoch_loss = []
 
 print("BUILD MODEL")
@@ -185,14 +190,11 @@ with tf.Session() as sess:
     n_batches = train_data.shape[0]//config.FCN_batch_size
     for i in range(config.FCN_n_epochs):
         total_loss = 0
-
         if i == 0:
-            pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_new", "model.ckpt"))
-        # elif i%5 == 1:
-        #     try:
-        #         pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_new", "model.ckpt"))
-        #     except:
-        #         continue
+            try:
+                pre_saver.restore(sess, os.path.join(config.MODEL_DIR, model_folder, "model.ckpt"))
+            except:
+                continue
 
 
         for batch in range(n_batches):
@@ -208,13 +210,14 @@ with tf.Session() as sess:
         epoch_loss.append(total_loss/n_batches)
         if i % 5 == 0:
             try:
-                iter = i+21
-                save_path = saver.save(sess, os.path.join(config.MODEL_DIR, "FCN_new", "model"+str(iter)+".ckpt"))
+                save_path = saver.save(sess, os.path.join(config.MODEL_DIR, model_folder, "model_"+str(i+1)+".ckpt"))
                 epoch_loss_npy = np.array(epoch_loss)
-                np.save(os.path.join(config.MODEL_DIR, "FCN_EXT_"+str(i+21)), epoch_loss_npy)
+                epoch_loss_npy_filename = 'loss_'+str(i+1)
+                np.save(os.path.join(config.MODEL_DIR, model_folder, epoch_loss_npy_filename), epoch_loss_npy)
             except:
                 continue
 
     summary_writer.close()
-    save_path = saver.save(sess, os.path.join(config.MODEL_DIR, "FCN_EXT_40", "model.ckpt"))
-    np.save(os.path.join(config.MODEL_DIR, "FCN_EXT_40"), epoch_loss)
+    save_path = saver.save(sess, os.path.join(config.MODEL_DIR, model_folder, "model_"+str(config.FCN_n_epochs)+".ckpt"))
+    epoch_loss_npy_filename = 'loss_'+str(config.FCN_n_epochs)
+    np.save(os.path.join(config.MODEL_DIR, model_folder, ), epoch_loss)

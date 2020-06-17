@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Oct 18 10:09:44 2019
-
-@author: ghosh128
-"""
 
 import sys
 sys.path.append("../")
@@ -14,19 +9,23 @@ import numpy as np
 import tensorflow as tf
 import tifffile as tiff
 
-#%%
+MODEL = "FCN"
+LOSS_FUNCTION = "SMILE"
+
+model_folder = MODEL + '_' + LOSS_FUNCTION
+
+
 print("LOAD DATA")
 
 train_data = np.load(os.path.join(config.NUMPY_DIR, "train_image.npy"))
 train_label = np.load(os.path.join(config.NUMPY_DIR, "train_label.npy"))
 epoch_loss = []
-#%%
+
 print("BUILD MODEL")
 tf.reset_default_graph()
 parameters = []
 with tf.name_scope('data'):
     X = tf.placeholder(tf.float32, [None, config.patch_size, config.patch_size, config.channels], name="inputs")
-    # Y = tf.placeholder(tf.int32, [None, config.patch_size, config.patch_size, config.classes], name="labels")
     Y = tf.placeholder(tf.int32, [None, config.patch_size, config.patch_size], name="labels")
 
 
@@ -155,17 +154,6 @@ parameters += [Output_W]
 
 print("Y:", Y.shape)
 
-# with tf.name_scope("loss_function"):
-#     t1 = tf.zeros((config.FCN_batch_size, Y.shape[1], Y.shape[2], 1), tf.int32)
-#     t2 = tf.ones((config.FCN_batch_size, Y.shape[1], Y.shape[2], 5), tf.int32)
-#     n_dim = len(Y.shape) -1
-#
-#     mask = tf.concat([t1,t2], n_dim)
-#     Y_modified = Y*mask
-#     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=Y_modified, logits=Z))
-#     print('After reduce mean',loss.shape)
-# tf.summary.scalar('loss', loss)
-
 with tf.name_scope("loss_function"):
     intermediate = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=Y, logits=Z)
     ones_mask = tf.ones((config.FCN_batch_size, Y.shape[1], Y.shape[2]), tf.int32)
@@ -178,7 +166,7 @@ global_step = tf.Variable(0, name='global_step', trainable=False)
 with tf.variable_scope("optimizer", reuse=tf.AUTO_REUSE):
     optimizer = tf.train.AdamOptimizer(config.FCN_learning_rate).minimize(loss, global_step)
 
-#%%
+
 print("TRAIN MODEL")
 pre_saver = tf.train.Saver()
 saver = tf.train.Saver()
@@ -187,8 +175,8 @@ with tf.Session() as sess:
     summary_writer = tf.summary.FileWriter(os.path.join(config.MODEL_DIR, "FCN_loss2_30"), sess.graph)
     sess.run(tf.global_variables_initializer())
     sess.run(tf.local_variables_initializer())
-    # pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_100", "model.ckpt"))
     n_batches = train_data.shape[0]//config.FCN_batch_size
+    
     for i in range(config.FCN_n_epochs):
         total_loss = 0
         if i == 0:
@@ -196,16 +184,7 @@ with tf.Session() as sess:
                 pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN", "model.ckpt"))
             except:
                 continue
-        # elif i%10 == 1:
-        #     try:
-        #         pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_loss2", "model.ckpt"))
-        #     except:
-        #         continue
-        # if i%10 == 1:
-        #     try:
-        #         pre_saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_loss2", "model.ckpt"))
-        #     except:
-        #         continue
+
         for batch in range(n_batches-2):
             data_batch = train_data[batch*config.FCN_batch_size:(batch+1)*config.FCN_batch_size, :, :, :]
             label_batch = train_label[batch*config.FCN_batch_size:(batch+1)*config.FCN_batch_size, :, :]
@@ -221,12 +200,13 @@ with tf.Session() as sess:
         if i % 5 == 0:
             try:
                 epoch_number = i+1
-                save_path = saver.save(sess, os.path.join(config.MODEL_DIR, "FCN_SMILE_PRETRAINED", "model_fcn50_"+str(epoch_number)+".ckpt"))
+                save_path = saver.save(sess, os.path.join(config.MODEL_DIR, model_folder, "model_"+str(epoch_number)+".ckpt"))
                 epoch_loss_npy = np.array(epoch_loss)
-                np.save(os.path.join(config.MODEL_DIR, "FCN_loss2_"+str(epoch_number)), epoch_loss_npy)
+                np.save(os.path.join(config.MODEL_DIR, model_folder, "loss_"+str(epoch_number)), epoch_loss_npy)
             except:
                 continue
 
     summary_writer.close()
-    save_path = saver.save(sess, os.path.join(config.MODEL_DIR, "FCN_SMILE_PRETRAINED", "model_fcn50_5.ckpt"))
-    np.save(os.path.join(config.MODEL_DIR, "FCN_SMILE_PRETRAINED_FCN50_5"), epoch_loss)
+    
+    save_path = saver.save(sess, os.path.join(config.MODEL_DIR, model_folder, "model_"+str(config.FCN_n_epochs)+".ckpt"))
+    np.save(os.path.join(config.MODEL_DIR, model_folder,  "loss_"+str(config.FCN_n_epochs)), epoch_loss)

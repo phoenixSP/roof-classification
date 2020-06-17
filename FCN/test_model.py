@@ -1,42 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Oct 18 10:09:44 2019
-
-@author: ghosh128
-"""
 
 import sys
 sys.path.append("../")
 import config
 import os
 import numpy as np
-# from PIL import Image
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import tifffile as tiff
 import matplotlib.colors
 import matplotlib as mpl
 
-dir = '5'
+N_DATA = 20
+N= 6
+MODEL = 'FCN'
+LOSS_FUNCTION = "SMILE"
+EPOCH = 10
 
-if not os.path.exists(os.path.join(config.RESULT_DIR, "FCN_SMILE_PRETRAINED", dir)):
-    os.makedirs(os.path.join(config.RESULT_DIR, "FCN_SMILE_PRETRAINED", dir))
-#
-# #%%
-# print("LOAD DATA")
-# test_data = np.load(os.path.join(config.NUMPY_DIR, "test_data.npy"))
+result_folder = MODEL + '_' + LOSS_FUNCTION + '_' + str(EPOCH)
+model_folder = MODEL + '_' + LOSS_FUNCTION
+checkpoint_name = 'model_'+str(EPOCH)+ '.ckpt'
 
-# testing using train set
+if not os.path.exists(os.path.join(config.RESULT_DIR, result_folder)):
+    os.makedirs(os.path.join(config.RESULT_DIR, result_folder))
+
+print("LOAD DATA")
+
 test_data = np.load(os.path.join(config.NUMPY_DIR, "test_image.npy"))
 test_label = np.load(os.path.join(config.NUMPY_DIR, "test_label.npy"))
-# n_data = test_data.shape[0]
 
-n_data = 20
-test_data = test_data[:n_data, :,:,:]
-test_label = test_label[:n_data, :, :]
+test_data = test_data[:N_DATA, :,:,:]
+test_label = test_label[:N_DATA, :, :]
 
-#%%
 print("BUILD MODEL")
 tf.reset_default_graph()
 with tf.name_scope('data'):
@@ -143,21 +139,21 @@ with tf.variable_scope("Output", reuse=tf.AUTO_REUSE):
     Output_W = tf.get_variable("Output_W", [16, 16, config.classes, config.classes], initializer=tf.contrib.layers.xavier_initializer())
 Z = tf.nn.conv2d_transpose(fuse2, Output_W, tf.stack([tf.shape(maxpool4)[0], config.patch_size, config.patch_size, config.classes]), strides=[1, 8, 8, 1], padding="SAME")
 Z = tf.argmax(Z, dimension=3)
-#%%
+
+
 print("TEST MODEL")
 saver = tf.train.Saver()
 preds = np.zeros((test_data.shape[0], config.patch_size, config.patch_size))
 with tf.Session() as sess:
-    saver.restore(sess, os.path.join(config.MODEL_DIR, "FCN_SMILE_PRETRAINED", "model_fcn50_5.ckpt"))
+    saver.restore(sess, os.path.join(config.MODEL_DIR, model_folder, checkpoint_name))
     n_batches = test_data.shape[0]//config.FCN_batch_size
     for batch in range(n_batches):
         print(batch)
         data_batch = test_data[batch*config.FCN_batch_size:(batch+1)*config.FCN_batch_size, :, :, :]
         feed_dict = {X: data_batch}
         preds[batch*config.FCN_batch_size:(batch+1)*config.FCN_batch_size, :, :] = sess.run(Z, feed_dict=feed_dict)
-#%%
 
-N= 6
+print("Plotting the results")
 # define the colormap
 cmap = plt.cm.jet
 # extract all colors from the .jet map
@@ -169,11 +165,8 @@ cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
 bounds = np.linspace(0,N,N+1)
 norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
-# cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","violet","blue"])
-
-for i in range(n_data):
+for i in range(N_DATA):
     image = test_data[i,:,:,:]
-
     label = test_label[i,:,:]
     print("For ith test file", label.shape)
 
@@ -186,6 +179,6 @@ for i in range(n_data):
     plt.imshow(preds[i,:,:] , cmap= cmap, norm = norm)
     plt.tight_layout()
     plt.colorbar()
-    plt.savefig(os.path.join(config.RESULT_DIR, "FCN_SMILE_PRETRAINED", dir , str(i)+".png"), format='png')
-    print(os.path.join(config.RESULT_DIR, "FCN_SMILE_PRETRAINED", dir,  str(i)+".png"))
+    plt.savefig(os.path.join(config.RESULT_DIR, result_folder, str(i)+".png"), format='png')
+    print(os.path.join(config.RESULT_DIR, result_folder, str(i)+".png"))
     plt.close()
